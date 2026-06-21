@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Обзор полива{% endblock %}
+{% block content %}
+<div class="heading"><h1>Обзор полива</h1><a class="button" href="{{ request.url_for('schedules_page') }}">Изменить расписания</a></div>
+
+<section class="overview-status-grid" aria-label="Состояние полива">
+  <article class="dashboard-widget overview-status-widget overview-next">
+    <span class="widget-label">Ближайший полив</span>
+    {% if dashboard.next %}
+    <h2>{{ dashboard.next.zone_name }}</h2>
+    <strong class="widget-value">{{ dashboard.next.datetime }}</strong>
+    <p>{% if dashboard.next.watering_mode == "volume" %}{{ dashboard.next.liters_per_m2 }} л/м²{% else %}{{ dashboard.next.duration }} мин{% endif %}</p>
+    {% else %}
+    <h2>Не запланирован</h2>
+    <p>Добавьте активное расписание.</p>
+    {% endif %}
+    <small>Сейчас: {{ dashboard.now }}</small>
+  </article>
+
+  {% if dashboard.rain %}
+  <article class="dashboard-widget overview-status-widget overview-rain status-{{ dashboard.rain.status_class }}">
+    <span class="widget-label">Датчик дождя</span><h2>{{ dashboard.rain.status }}</h2><p>{{ dashboard.rain.detail }}</p><small><code>{{ dashboard.rain.topic }}</code></small>
+  </article>
+  {% else %}
+  <article class="dashboard-widget overview-status-widget overview-rain status-disabled">
+    <span class="widget-label">Датчик дождя</span><h2>Не настроен</h2><p>Датчик дождя не настроен.</p>
+  </article>
+  {% endif %}
+
+  <article class="dashboard-widget overview-status-widget overview-pump {% if not pump.enabled or not pump.relay_state_topic %}status-warning{% elif pump_value == '1' %}status-active{% elif pump_value == '0' %}status-ready{% else %}status-warning{% endif %}">
+    <span class="widget-label">Насос</span>
+    {% if not pump.enabled or not pump.relay_state_topic %}<h2>Не настроен</h2><p>Зоны работают без насоса.</p>{% elif pump_value == '1' %}<h2>Работает</h2><p>Насос включён.</p>{% elif pump_value == '0' %}<h2>Остановлен</h2><p>Насос готов к запуску.</p>{% else %}<h2>Нет данных</h2><p>Состояние насоса неизвестно.</p>{% endif %}
+  </article>
+
+  <article class="dashboard-widget overview-status-widget overview-flow {% if not flow_meter.enabled or not flow_meter.topic or flow_value is none %}status-warning{% else %}status-ready{% endif %}">
+    <span class="widget-label">Счётчик воды</span>
+    {% if not flow_meter.enabled or not flow_meter.topic %}<h2>Не настроен</h2><p>Расходомер не настроен. Насос работает без защиты от сухого хода. Полив по объёму недоступен.</p>{% elif flow_value is none %}<h2>Нет данных</h2><p>Защита остановит насос при запуске.</p>{% else %}<h2>{{ flow_value }} л/мин</h2><p>Минимальный расход: {{ flow_meter.min_flow_l_min }} л/мин.</p>{% endif %}
+  </article>
+
+  <section class="overview-zone-panel overview-zones">
+    <div class="heading"><h2>Зоны</h2><span class="badge">{{ dashboard.zones | length }}</span></div>
+    <div class="overview-zone-list">
+      {% for zone in dashboard.zones %}
+      <article class="zone-widget status-{{ zone.status_class }}"><div class="heading"><h3>{{ zone.name }}</h3><strong>{{ zone.status }}</strong></div><p>{{ zone.detail }} · Реле: {{ zone.relay_count }}</p><small>{{ zone.next or "Ближайший запуск не задан" }}</small></article>
+      {% else %}<p class="empty-slot">Зоны ещё не созданы.</p>{% endfor %}
+    </div>
+  </section>
+</section>
+
+<section class="dashboard-widget dashboard-wide overview-chart">
+    <div class="heading"><div><span class="widget-label">Расписание</span><h2>Недельная диаграмма</h2></div></div>
+    {% if weekly_map.has_events %}
+    <p>Номер на блоке показывает порядок запуска зоны в течение дня.{% if weekly_map.compressed %} Большие интервалы без полива на шкале сжаты.{% endif %}</p>
+    <div class="gantt-scroll">
+      <div class="gantt-chart" style="width: {{ weekly_map.width + 130 }}px">
+        <div class="gantt-axis-row"><div></div><div class="gantt-axis">{% for tick in weekly_map.ticks %}<span style="left: {{ tick.left }}%">{{ tick.label }}</span>{% endfor %}{% for position in weekly_map.breaks %}<i class="gantt-time-break" style="left: {{ position }}%">//</i>{% endfor %}</div></div>
+        {% for day in weekly_map.days %}
+        <section class="gantt-row">
+          <div class="gantt-day"><strong>{{ day.short }}</strong><span>{{ day.name }}</span></div>
+          <div>
+            <div class="gantt-track">
+              {% for tick in weekly_map.ticks %}<i class="gantt-grid-line" style="left: {{ tick.left }}%"></i>{% endfor %}
+              {% for position in weekly_map.breaks %}<i class="gantt-track-break" style="left: {{ position }}%"></i>{% endfor %}
+              {% for event in day.events %}<div class="gantt-bar" style="left: {{ event.left }}%; width: {{ event.width }}%; --bar-hue: {{ event.hue }}" title="{{ event.zone_name }}: {{ event.start }}–{{ event.end }}"><strong>{{ event.order }}</strong></div>{% endfor %}
+            </div>
+            <div class="gantt-sequence">{% for event in day.events %}<span><b>{{ event.order }}. {{ event.zone_name }}</b> {{ event.start }}–{{ event.end }}{% if event.continuation %} (продолжение){% endif %}</span>{% else %}<span class="empty-slot">Полива нет</span>{% endfor %}</div>
+          </div>
+        </section>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <p>Добавьте активные зоны и расписания, чтобы увидеть диаграмму.</p>
+    {% endif %}
+</section>
+{% endblock %}

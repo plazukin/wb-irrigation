@@ -1,0 +1,6 @@
+{
+  "enabled": true,
+  "relay_device_id": "wb-mr6c_1",
+  "relay_control_id": "K6",
+  "start_delay_sec": 1
+}

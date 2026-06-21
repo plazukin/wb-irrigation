@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}События{% endblock %}
+{% block content %}
+<h1>События</h1>
+<table><thead><tr><th>Время UTC</th><th>Уровень</th><th>Тип</th><th>Зона</th><th>Сообщение</th></tr></thead><tbody>
+{% for event in events %}<tr><td>{{ event.created_at }}</td><td>{{ event.level }}</td><td>{{ event.event_type }}</td><td>{{ event.zone_id or "—" }}</td><td>{{ event.message }}</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}
+

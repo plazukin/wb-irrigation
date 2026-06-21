@@ -1,0 +1,12 @@
+<label>Название<input name="name" value="{{ relay.name if relay else '' }}" required></label>
+<label>Способ настройки<select class="relay-mode"><option value="basic" {% if not relay or relay.relay_device_id %}selected{% endif %}>Выбор из устройств Wiren Board</option><option value="manual" {% if relay and not relay.relay_device_id %}selected{% endif %}>MQTT-топики вручную</option></select></label>
+<fieldset class="relay-basic" {% if relay and not relay.relay_device_id %}hidden{% endif %}><legend>Устройство Wiren Board</legend>
+  <label>Устройство<select name="relay_device_id" data-selected="{{ relay.relay_device_id or '' if relay else '' }}" required><option value="">Загрузка устройств…</option></select></label>
+  <label>Канал<select name="relay_control_id" data-selected="{{ relay.relay_control_id or '' if relay else '' }}" required><option value="">Сначала выберите устройство</option></select></label>
+</fieldset>
+<fieldset class="relay-manual" {% if not relay or relay.relay_device_id %}hidden{% endif %}><legend>MQTT-топики</legend>
+  <label>Топик состояния<input name="relay_state_topic" value="{{ (relay.relay_state_topic or '') if relay and not relay.relay_device_id else '' }}" required></label>
+  <label>Топик управления<input name="relay_set_topic" value="{{ (relay.relay_set_topic or '') if relay and not relay.relay_device_id else '' }}" required></label>
+</fieldset>
+<div class="actions"><button type="submit">Сохранить и проверить</button><button type="button" data-probe="relay">Проверить</button><button type="button" class="danger" data-probe="test">Включить на 1 секунду</button><button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button></div>
+<pre class="probe-result"></pre>

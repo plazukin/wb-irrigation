@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Настройки{% endblock %}
+{% block content %}
+<div class="heading"><h1>Настройки</h1></div>
+
+<div class="settings-grid">
+  <article class="dashboard-widget settings-widget {% if pump.enabled %}status-ready{% else %}status-warning{% endif %}">
+    <span class="widget-label">Оборудование</span><h2>Насос</h2>
+    <strong class="widget-status">{{ "Настроен" if pump.enabled else "Отключён" }}</strong>
+    <p>Задержка: {{ pump.start_delay_sec }} с</p>
+    <small><code>{{ pump.relay_state_topic or "Топик не задан" }}</code></small>
+    <button type="button" {% if has_active_zones %}disabled title="Сначала остановите полив"{% endif %} onclick="document.querySelector('#pump-settings-dialog').showModal()">Изменить</button>
+  </article>
+
+  <article class="dashboard-widget settings-widget {% if flow_meter.enabled %}status-ready{% else %}status-warning{% endif %}">
+    <span class="widget-label">Безопасность</span><h2>Расходомер</h2>
+    <strong class="widget-status">{{ "Настроен" if flow_meter.enabled else "Отключён" }}</strong>
+    <p>Минимум: {{ flow_meter.min_flow_l_min }} л/мин</p>
+    <small><code>{{ flow_meter.topic or "Топик не задан" }}</code></small>
+    <button type="button" {% if has_active_zones %}disabled title="Сначала остановите полив"{% endif %} onclick="document.querySelector('#flow-meter-settings-dialog').showModal()">Изменить</button>
+  </article>
+
+  <article class="dashboard-widget settings-widget {% if rain.enabled %}status-ready{% else %}status-disabled{% endif %}">
+    <span class="widget-label">Безопасность</span><h2>Датчик дождя</h2>
+    <strong class="widget-status">{{ "Настроен" if rain.enabled else "Отключён" }}</strong>
+    <p>Дождь: значение {{ rain.active_value }}</p>
+    <small><code>{{ rain.topic or "Топик не задан" }}</code></small>
+    <button type="button" onclick="document.querySelector('#rain-settings-dialog').showModal()">Изменить</button>
+  </article>
+</div>
+
+<section class="relay-settings-section">
+  <div class="heading"><h2>Реле</h2><button type="button" onclick="document.querySelector('#relay-create-dialog').showModal()">Добавить реле</button></div>
+  <div class="settings-relay-grid">
+  {% for relay in relays %}
+  <article class="dashboard-widget settings-widget settings-relay-widget {% if relay.zone_id is none %}status-ready{% else %}status-active{% endif %}" id="relay-{{ relay.id }}">
+    <span class="widget-label">Реле</span><h2>{{ relay.name }}</h2>
+    <strong class="widget-status">{{ "Свободно" if relay.zone_id is none else "Используется зоной" }}</strong>
+    <small><code>{{ relay.relay_state_topic }}</code></small>
+    <div class="settings-widget-actions"><button type="button" class="secondary" onclick="document.querySelector('#relay-edit-dialog-{{ relay.id }}').showModal()">Изменить</button><button type="button" class="danger" {% if relay.zone_id is not none %}disabled{% endif %} onclick="document.querySelector('#relay-delete-dialog-{{ relay.id }}').showModal()">Удалить</button></div>
+  </article>
+  {% else %}<p class="empty-slot">Реле ещё не добавлены.</p>{% endfor %}
+  </div>
+</section>
+
+{% for relay in relays %}
+<dialog id="relay-edit-dialog-{{ relay.id }}"><div class="dialog-heading"><h2>Изменение реле</h2><button type="button" class="dialog-close" aria-label="Закрыть" onclick="this.closest('dialog').close()">×</button></div>{% if edit_relay_id == relay.id and edit_relay_error %}<p class="error">{{ edit_relay_error }}</p>{% endif %}<form class="stack relay-form" method="post" action="{{ request.url_for('update_relay_form', relay_id=relay.id) }}" data-devices-url="{{ request.url_for('devices') }}" data-controls-url="{{ request.url_for('controls') }}" data-validate-url="{{ request.url_for('validate_relay') }}" data-test-url="{{ request.url_for('test_relay') }}">{% with relay=edit_relay if edit_relay_id == relay.id and edit_relay else relay %}{% include "_relay_form_fields.html" %}{% endwith %}</form></dialog>
+<dialog id="relay-delete-dialog-{{ relay.id }}"><div class="dialog-heading"><h2>Удаление реле</h2><button type="button" class="dialog-close" aria-label="Закрыть" onclick="this.closest('dialog').close()">×</button></div><p>Удалить реле «{{ relay.name }}»?</p><div class="actions"><button type="button" class="danger" hx-delete="{{ request.url_for('delete_relay_form', relay_id=relay.id) }}" hx-target="#relay-{{ relay.id }}" hx-swap="delete" hx-on::before-swap="if(event.detail.shouldSwap)this.closest('dialog').close()">Удалить</button><button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button></div></dialog>
+{% endfor %}
+
+<dialog id="relay-create-dialog"><div class="dialog-heading"><h2>Новое реле</h2><button type="button" class="dialog-close" aria-label="Закрыть" onclick="this.closest('dialog').close()">×</button></div>{% if create_relay_error %}<p class="error">{{ create_relay_error }}</p>{% endif %}<form class="stack relay-form" method="post" action="{{ request.url_for('create_relay_form') }}" data-devices-url="{{ request.url_for('devices') }}" data-controls-url="{{ request.url_for('controls') }}" data-validate-url="{{ request.url_for('validate_relay') }}" data-test-url="{{ request.url_for('test_relay') }}">{% with relay=create_relay %}{% include "_relay_form_fields.html" %}{% endwith %}</form></dialog>
+
+<dialog id="pump-settings-dialog"><div class="dialog-heading"><h2>Настройка насоса</h2><button type="button" class="dialog-close" aria-label="Закрыть" onclick="this.closest('dialog').close()">×</button></div>{% if pump_error %}<p class="error">{{ pump_error }}</p>{% endif %}<form class="stack relay-form pump-form" method="post" action="{{ request.url_for('pump_form') }}" data-devices-url="{{ request.url_for('devices') }}" data-controls-url="{{ request.url_for('controls') }}" data-validate-url="{{ request.url_for('validate_relay') }}" data-test-url="{{ request.url_for('test_relay') }}">{% include "_pump_form_fields.html" %}</form></dialog>
+
+<dialog id="flow-meter-settings-dialog"><div class="dialog-heading"><h2>Настройка расходомера</h2><button type="button" class="dialog-close" aria-label="Закрыть" onclick="this.closest('dialog').close()">×</button></div>{% if flow_meter_error %}<p class="error">{{ flow_meter_error }}</p>{% endif %}<form class="stack flow-meter-form" method="post" action="{{ request.url_for('flow_meter_form') }}" data-devices-url="{{ request.url_for('devices') }}" data-controls-url="{{ request.url_for('value_controls') }}">{% include "_flow_meter_form_fields.html" %}</form></dialog>
+
+<dialog id="rain-settings-dialog"><div class="dialog-heading"><h2>Настройка датчика дождя</h2><button type="button" class="dialog-close" aria-label="Закрыть" onclick="this.closest('dialog').close()">×</button></div>{% if error %}<p class="error">{{ error }}</p>{% endif %}<form class="stack rain-form" method="post" action="{{ request.url_for('rain_sensor_form') }}" data-devices-url="{{ request.url_for('devices') }}" data-controls-url="{{ request.url_for('input_controls') }}">{% include "_rain_form_fields.html" %}</form></dialog>
+
+<script src="{{ request.url_for('static', path='relay-form.js') }}"></script>
+<script src="{{ request.url_for('static', path='rain-form.js') }}"></script>
+<script src="{{ request.url_for('static', path='flow-meter-form.js') }}"></script>
+{% if error %}<script>document.querySelector('#rain-settings-dialog').showModal();</script>{% endif %}
+{% if create_relay_error %}<script>document.querySelector('#relay-create-dialog').showModal();</script>{% endif %}
+{% if edit_relay_error %}<script>document.querySelector('#relay-edit-dialog-{{ edit_relay_id }}').showModal();</script>{% endif %}
+{% if pump_error %}<script>document.querySelector('#pump-settings-dialog').showModal();</script>{% endif %}
+{% if flow_meter_error %}<script>document.querySelector('#flow-meter-settings-dialog').showModal();</script>{% endif %}
+{% endblock %}

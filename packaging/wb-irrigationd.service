@@ -1,0 +1,25 @@
+[Unit]
+Description=Контроллер полива Wiren Board
+After=network.target mosquitto.service
+Wants=mosquitto.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/wb-irrigation
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/wb-irrigationd --config /etc/wb-irrigation/config.yaml
+Restart=on-failure
+RestartSec=5
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+StateDirectory=wb-irrigation
+ConfigurationDirectory=wb-irrigation
+ReadWritePaths=/var/lib/wb-irrigation
+
+[Install]
+WantedBy=multi-user.target

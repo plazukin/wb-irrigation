@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+if command -v systemctl >/dev/null 2>&1; then
+    case "$1" in
+        remove|deconfigure)
+            systemctl stop wb-irrigationd.service >/dev/null 2>&1 || true
+            ;;
+    esac
+fi
+
+if [ "$1" = "remove" ] || [ "$1" = "deconfigure" ]; then
+    rm -f /etc/nginx/includes/default.wb.d/watering.conf
+    if command -v nginx >/dev/null 2>&1 \
+        && command -v systemctl >/dev/null 2>&1 \
+        && nginx -t >/dev/null 2>&1; then
+        systemctl reload nginx.service >/dev/null 2>&1 || true
+    fi
+fi
+
+exit 0

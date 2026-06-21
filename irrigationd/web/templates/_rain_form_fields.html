@@ -1,0 +1,11 @@
+<label><input type="checkbox" name="enabled" {% if rain.enabled %}checked{% endif %}> Использовать датчик дождя</label>
+<label>Способ настройки<select class="rain-mode"><option value="basic" {% if not rain.topic or rain.device_id %}selected{% endif %}>Выбор из устройств Wiren Board</option><option value="manual" {% if rain.topic and not rain.device_id %}selected{% endif %}>MQTT-топик вручную</option></select></label>
+<fieldset class="rain-basic" {% if rain.topic and not rain.device_id %}hidden{% endif %}><legend>Устройство Wiren Board</legend>
+  <label>Устройство<select name="device_id" data-selected="{{ rain.device_id or '' }}"><option value="">Загрузка устройств…</option></select></label>
+  <label>Канал датчика<select name="control_id" data-selected="{{ rain.control_id or '' }}"><option value="">Сначала выберите устройство</option></select></label>
+</fieldset>
+<fieldset class="rain-manual" {% if not rain.topic or rain.device_id %}hidden{% endif %}><legend>MQTT-топик</legend>
+  <label>Топик состояния<input name="topic" value="{{ rain.topic or '' if not rain.device_id else '' }}"></label>
+</fieldset>
+<label>Значение «идёт дождь»<select name="active_value"><option value="1" {% if rain.active_value == '1' %}selected{% endif %}>1</option><option value="0" {% if rain.active_value == '0' %}selected{% endif %}>0</option></select></label>
+<div class="actions"><button type="submit">Сохранить и проверить</button><button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button></div>

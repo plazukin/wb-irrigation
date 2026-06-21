@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Зоны полива{% endblock %}
+{% block content %}
+<div class="heading"><h1>Зоны</h1><button type="button" onclick="document.querySelector('#zone-create-dialog').showModal()">Новая зона</button></div>
+<dialog id="zone-create-dialog">
+  <div class="dialog-heading"><h2>Новая зона</h2><button type="button" class="dialog-close" aria-label="Закрыть" onclick="this.closest('dialog').close()">×</button></div>
+  {% if create_error %}<p class="error">{{ create_error }}</p>{% endif %}
+  <form class="stack zone-entity-form" method="post" action="{{ request.url_for('create_zone_form') }}">
+    {% set zone = create_zone %}
+    {% set modal = true %}
+    {% include "_zone_form_fields.html" %}
+  </form>
+</dialog>
+
+{% if not zones %}<p>Зоны ещё не созданы.</p>{% endif %}
+{% if zones %}<div class="zone-grid">{% endif %}
+{% for zone in zones %}
+{% set is_active = zone.id in active_zone_ids %}
+<section class="zone-card {% if is_active %}zone-card-active{% elif not zone.enabled %}zone-card-disabled{% endif %}" id="zone-{{ zone.id }}">
+  <div class="zone-card-heading">
+    <h2>{{ zone.name }}</h2>
+    <span class="badge">{% if is_active %}Полив{% elif zone.enabled %}Готова{% else %}Отключена{% endif %}</span>
+  </div>
+  <div class="zone-card-meta">
+    <span>Реле: {{ zone.relays | length }}</span>
+    <span>{{ zone.area_m2 }} м²</span>
+    <span>{{ "Без датчика дождя" if zone.ignore_rain_sensor else "С датчиком дождя" }}</span>
+    {% if zone.last_validation_status %}<span class="zone-validation {{ 'ok' if zone.last_validation_status == 'ok' else 'warning' }}">{{ zone.last_validation_message or zone.last_validation_status }}</span>{% endif %}
+  </div>
+  <div class="zone-card-actions">
+    <button type="button" {% if is_active or not zone.enabled %}disabled{% endif %} onclick="document.querySelector('#zone-start-dialog-{{ zone.id }}').showModal()">Запустить</button>
+    <button type="button" {% if not is_active %}disabled{% endif %} onclick="document.querySelector('#zone-stop-dialog-{{ zone.id }}').showModal()">Остановить</button>
+    <button type="button" class="secondary" {% if is_active %}disabled{% endif %} onclick="document.querySelector('#zone-edit-dialog-{{ zone.id }}').showModal()">Изменить</button>
+    <button type="button" class="danger" {% if is_active %}disabled{% endif %} onclick="document.querySelector('#zone-delete-dialog-{{ zone.id }}').showModal()">Удалить</button>
+  </div>
+  <div id="result-{{ zone.id }}"></div>
+
+  <dialog id="zone-start-dialog-{{ zone.id }}">
+    <div class="dialog-heading"><h2>Запуск зоны «{{ zone.name }}»</h2><button type="button" class="dialog-close" aria-label="Закрыть" onclick="this.closest('dialog').close()">×</button></div>
+    <form class="stack manual-start-form" hx-post="{{ request.url_for('ui_start', zone_id=zone.id) }}" hx-target="#result-{{ zone.id }}" hx-on::after-request="if(event.detail.successful)this.closest('dialog').close()">
+      <label>Режим полива<select name="watering_mode"><option value="timer">По времени</option><option value="volume" {% if not flow_meter_configured %}disabled{% endif %}>По расходу воды{% if not flow_meter_configured %} — расходомер не настроен{% endif %}</option></select></label>
+      <label class="timer-watering">Длительность, мин<input name="duration_min" type="number" min="0.1" step="0.1" max="{{ zone.max_duration_sec / 60 }}" value="1" required></label>
+      <label class="volume-watering">Норма воды, л/м²<input name="liters_per_m2" type="number" min="0.1" step="0.1" value="1"></label>
+      <div class="actions"><button>Запустить</button><button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="zone-stop-dialog-{{ zone.id }}">
+    <div class="dialog-heading"><h2>Остановка зоны</h2><button type="button" class="dialog-close" aria-label="Закрыть" onclick="this.closest('dialog').close()">×</button></div>
+    <p>Остановить полив зоны «{{ zone.name }}»?</p>
+    <div class="actions"><button hx-post="{{ request.url_for('ui_stop', zone_id=zone.id) }}" hx-target="#result-{{ zone.id }}" hx-on::after-request="if(event.detail.successful)this.closest('dialog').close()">Остановить</button><button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button></div>
+  </dialog>
+
+  <dialog id="zone-edit-dialog-{{ zone.id }}">
+    <div class="dialog-heading"><h2>Изменение зоны «{{ zone.name }}»</h2><button type="button" class="dialog-close" aria-label="Закрыть" onclick="this.closest('dialog').close()">×</button></div>
+    {% if edit_zone_id == zone.id and edit_error %}<p class="error">{{ edit_error }}</p>{% endif %}
+    <form class="stack zone-entity-form" method="post" action="{{ request.url_for('update_zone_form', zone_id=zone.id) }}">
+      {% set modal = true %}
+      {% with zone=edit_zone if edit_zone_id == zone.id and edit_zone else zone %}{% include "_zone_form_fields.html" %}{% endwith %}
+    </form>
+  </dialog>
+
+  <dialog id="zone-delete-dialog-{{ zone.id }}">
+    <div class="dialog-heading"><h2>Удаление зоны</h2><button type="button" class="dialog-close" aria-label="Закрыть" onclick="this.closest('dialog').close()">×</button></div>
+    <p>Удалить зону «{{ zone.name }}» и её расписания?</p>
+    <div class="actions"><button type="button" class="danger" hx-delete="{{ request.url_for('ui_delete', zone_id=zone.id) }}" hx-target="#zone-{{ zone.id }}" hx-swap="delete" hx-on::before-swap="if(event.detail.shouldSwap)this.closest('dialog').close()">Удалить</button><button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button></div>
+  </dialog>
+</section>
+{% endfor %}
+{% if zones %}</div>{% endif %}
+<script>
+for (const form of document.querySelectorAll('.zone-entity-form')) {
+  const relays = [...form.querySelectorAll('input[name="relay_ids"]')];
+  form.addEventListener('submit', (event) => {
+    const selected = relays.some((relay) => relay.checked);
+    if (relays.length) relays[0].setCustomValidity(selected ? '' : 'Выберите хотя бы одно реле');
+    if (!selected) {
+      event.preventDefault();
+      if (relays.length) relays[0].reportValidity();
+    }
+  });
+  relays.forEach((relay) => relay.addEventListener('change', () => relays[0].setCustomValidity('')));
+}
+for (const form of document.querySelectorAll('.manual-start-form')) {
+  const mode = form.elements.watering_mode;
+  const timer = form.querySelector('.timer-watering');
+  const volume = form.querySelector('.volume-watering');
+  const updateMode = () => {
+    const timerMode = mode.value === 'timer';
+    timer.hidden = !timerMode;
+    volume.hidden = timerMode;
+    timer.querySelector('input').disabled = !timerMode;
+    timer.querySelector('input').required = timerMode;
+    volume.querySelector('input').disabled = timerMode;
+    volume.querySelector('input').required = !timerMode;
+  };
+  mode.addEventListener('change', updateMode);
+  updateMode();
+}
+</script>
+{% if create_error %}<script>document.querySelector('#zone-create-dialog').showModal();</script>{% endif %}
+{% if edit_error %}<script>document.querySelector('#zone-edit-dialog-{{ edit_zone_id }}').showModal();</script>{% endif %}
+{% endblock %}

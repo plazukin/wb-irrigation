@@ -1,0 +1,8 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: wb-irrigationd
+Source: local
+
+Files: *
+Copyright: 2026 wb-irrigationd contributors
+License: Proprietary
+ All rights reserved.

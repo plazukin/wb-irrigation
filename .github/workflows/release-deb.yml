@@ -1,0 +1,156 @@
+name: Публикация пакета Debian
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Существующий тег, например v0.1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deb-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Проверка тега
+    runs-on: ubuntu-22.04
+    outputs:
+      tag: ${{ steps.metadata.outputs.tag }}
+      version: ${{ steps.metadata.outputs.version }}
+    steps:
+      - name: Получение исходного кода
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Проверка тега и версии
+        id: metadata
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^[[:space:]]*version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' pyproject.toml | head -n 1)
+          if [[ -z "$version" ]]; then
+            echo "Не удалось прочитать версию из pyproject.toml" >&2
+            exit 1
+          fi
+          if [[ "$RELEASE_TAG" != "v$version" ]]; then
+            echo "Тег $RELEASE_TAG не соответствует версии $version" >&2
+            exit 1
+          fi
+          git rev-parse --verify "refs/tags/$RELEASE_TAG" >/dev/null
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Сборка пакета ${{ matrix.arch }}
+    needs: validate
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            platform: linux/arm64
+    steps:
+      - name: Получение исходного кода
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+
+      - name: Включение эмуляции ARM
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Сборка в Debian Bullseye
+        shell: bash
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --platform "$TARGET_PLATFORM" \
+            -e DEBIAN_FRONTEND=noninteractive \
+            -e PIP_DISABLE_PIP_VERSION_CHECK=1 \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            debian:bullseye-slim \
+            sh -euxc '
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                ca-certificates build-essential dpkg-dev make \
+                python3 python3-pip python3-venv
+              test "$(dpkg --print-architecture)" = "$1"
+              python3 --version
+              make deb PYTHON=python3
+              dpkg-deb --info dist/wb-irrigationd_*_"$1".deb
+              dpkg-deb --contents dist/wb-irrigationd_*_"$1".deb >/dev/null
+            ' build "$TARGET_ARCH"
+
+      - name: Сохранение пакета
+        uses: actions/upload-artifact@v4
+        with:
+          name: wb-irrigationd-${{ needs.validate.outputs.version }}-${{ matrix.arch }}
+          path: dist/wb-irrigationd_*_${{ matrix.arch }}.deb
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Публикация релиза
+    needs:
+      - validate
+      - build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Получение собранных пакетов
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wb-irrigationd-${{ needs.validate.outputs.version }}-*
+          path: dist
+          merge-multiple: true
+
+      - name: Расчёт контрольных сумм
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum ./*.deb > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Создание или обновление релиза
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          mapfile -d '' packages < <(find dist -maxdepth 1 -type f \( -name '*.deb' -o -name 'SHA256SUMS' \) -print0 | sort -z)
+          if [[ ${#packages[@]} -ne 2 ]]; then
+            echo "Ожидались DEB-пакет и SHA256SUMS, найдено файлов: ${#packages[@]}" >&2
+            exit 1
+          fi
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${packages[@]}" --clobber
+          else
+            gh release create "$RELEASE_TAG" "${packages[@]}" \
+              --verify-tag \
+              --title "wb-irrigationd $RELEASE_VERSION" \
+              --generate-notes
+          fi

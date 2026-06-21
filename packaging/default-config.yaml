@@ -1,0 +1,19 @@
+mqtt:
+  host: localhost
+  port: 1883
+  client_id: wb-irrigationd
+
+web:
+  host: 127.0.0.1
+  port: 8088
+  root_path: /watering
+
+storage:
+  path: /var/lib/wb-irrigation/irrigation.db
+
+safety:
+  stop_all_on_startup: true
+  stop_all_on_shutdown: true
+  default_max_duration_min: 15
+  relay_confirm_timeout_sec: 5
+  allow_parallel_zones: false

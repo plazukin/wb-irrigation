@@ -1,0 +1,18 @@
+{% set selected_relay_ids = (zone.relays | map(attribute='id') | list) if zone and zone.id else (zone.relay_ids if zone else []) %}
+<label>Название<input name="name" value="{{ zone.name if zone else '' }}" required></label>
+<label><input type="checkbox" name="enabled" {% if not zone or zone.enabled %}checked{% endif %}> Зона включена</label>
+<fieldset class="zone-relay-picker"><legend>Реле зоны</legend>
+  <div class="relay-choice-grid">
+  {% for relay in relays %}
+  <label class="relay-choice" {% if relay.zone_id is not none and relay.id not in selected_relay_ids %}title="Используется другой зоной"{% endif %}>
+    <span>{{ relay.name }}</span>
+    <input type="checkbox" name="relay_ids" value="{{ relay.id }}" {% if relay.id in selected_relay_ids %}checked{% endif %} {% if relay.zone_id is not none and relay.id not in selected_relay_ids %}disabled{% endif %}>
+  </label>
+  {% else %}<p>Сначала добавьте реле в настройках.</p>{% endfor %}
+  </div>
+</fieldset>
+<label><input type="checkbox" name="ignore_rain_sensor" {% if zone and zone.ignore_rain_sensor %}checked{% endif %}> Игнорировать глобальный датчик дождя</label>
+<label>Максимальная длительность, мин<input type="number" min="0.1" step="0.1" name="max_duration_min" value="{{ (zone.max_duration_sec / 60) if zone and zone.id else (zone.max_duration_min if zone else default_max_duration_min) }}" required></label>
+<label>Пауза между запусками, мин<input type="number" min="0" step="0.1" name="cooldown_min" value="{{ (zone.cooldown_sec / 60) if zone and zone.id else (zone.cooldown_min if zone else 0) }}" required></label>
+<label>Площадь зоны, м²<input type="number" min="0.1" step="0.1" name="area_m2" value="{{ zone.area_m2 if zone else 1 }}" required></label>
+<div class="actions"><button type="submit" {% if not relays %}disabled{% endif %}>Сохранить и проверить</button>{% if modal %}<button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button>{% endif %}</div>

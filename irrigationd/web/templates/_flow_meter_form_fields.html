@@ -1,0 +1,13 @@
+<label><input type="checkbox" name="enabled" {% if flow_meter.enabled %}checked{% endif %}> Использовать расходомер</label>
+<label>Способ настройки<select class="flow-meter-mode"><option value="basic" {% if not flow_meter.topic or flow_meter.device_id %}selected{% endif %}>Выбор из устройств Wiren Board</option><option value="manual" {% if flow_meter.topic and not flow_meter.device_id %}selected{% endif %}>MQTT-топик вручную</option></select></label>
+<fieldset class="flow-meter-basic" {% if flow_meter.topic and not flow_meter.device_id %}hidden{% endif %}><legend>Устройство Wiren Board</legend>
+  <label>Устройство<select name="device_id" data-selected="{{ flow_meter.device_id or '' }}"><option value="">Загрузка устройств…</option></select></label>
+  <label>Канал расхода<select name="control_id" data-selected="{{ flow_meter.control_id or '' }}"><option value="">Сначала выберите устройство</option></select></label>
+</fieldset>
+<fieldset class="flow-meter-manual" {% if not flow_meter.topic or flow_meter.device_id %}hidden{% endif %}><legend>MQTT-топик</legend>
+  <label>Текущий расход, л/мин<input name="topic" value="{{ flow_meter.topic or '' if not flow_meter.device_id else '' }}"></label>
+</fieldset>
+<label>Минимальный расход, л/мин<input type="number" name="min_flow_l_min" min="0.01" step="0.01" value="{{ flow_meter.min_flow_l_min }}" required></label>
+<label>Задержка защиты после запуска, с<input type="number" name="startup_grace_sec" min="0" max="120" step="0.1" value="{{ flow_meter.startup_grace_sec }}" required></label>
+<label>Тайм-аут данных, с<input type="number" name="stale_timeout_sec" min="1" max="300" step="0.1" value="{{ flow_meter.stale_timeout_sec }}" required></label>
+<div class="actions"><button type="submit">Сохранить</button><button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button></div>

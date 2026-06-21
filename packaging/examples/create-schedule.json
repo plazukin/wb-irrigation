@@ -1,0 +1,8 @@
+{
+  "zone_id": 1,
+  "enabled": true,
+  "days_of_week": "0,2,4",
+  "start_time": "07:30",
+  "watering_mode": "timer",
+  "duration_min": 5
+}

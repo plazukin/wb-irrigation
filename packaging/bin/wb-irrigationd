@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+PYTHON=/opt/wb-irrigation/.venv/bin/python
+
+if [ ! -x "$PYTHON" ]; then
+    echo "wb-irrigationd: среда Python не найдена: $PYTHON" >&2
+    exit 127
+fi
+
+exec "$PYTHON" -m irrigationd.main "$@"

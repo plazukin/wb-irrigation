@@ -1,0 +1,9 @@
+{
+  "name": "Газон",
+  "enabled": true,
+  "relay_ids": [1],
+  "ignore_rain_sensor": false,
+  "max_duration_min": 10,
+  "cooldown_min": 1,
+  "area_m2": 20
+}

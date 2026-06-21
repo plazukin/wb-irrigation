@@ -1,0 +1,10 @@
+Package: wb-irrigationd
+Version: @VERSION@
+Section: misc
+Priority: optional
+Architecture: @ARCH@
+Maintainer: Wiren Board Irrigation Maintainers <root@localhost>
+Depends: python3 (>= 3.9), systemd, nginx
+Description: Irrigation controller for Wiren Board
+ Controls irrigation relays over MQTT and provides schedules, safety checks,
+ a web interface and an HTTP API.

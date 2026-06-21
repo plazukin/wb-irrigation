@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Расписания{% endblock %}
+{% block content %}
+<div class="heading">
+  <h1>Расписания</h1>
+  {% if zones %}<button type="button" onclick="document.querySelector('#schedule-create-dialog').showModal()">Новое расписание</button>{% endif %}
+</div>
+{% if zones %}
+<dialog id="schedule-create-dialog">
+  <div class="dialog-heading"><h2>Новое расписание</h2><button type="button" class="dialog-close" aria-label="Закрыть" onclick="this.closest('dialog').close()">×</button></div>
+  {% if schedule_error %}<p class="error">{{ schedule_error }}</p>{% endif %}
+  <form class="schedule-form" method="post" action="{{ request.url_for('schedule_form') }}">
+    {% with schedule=schedule_data %}{% include "_schedule_form_fields.html" %}{% endwith %}
+  </form>
+</dialog>
+{% else %}
+<p>Сначала создайте зону.</p>
+{% endif %}
+
+{% if schedules %}
+<div class="table-scroll">
+  <table><thead><tr><th>Зона</th><th>Дни</th><th>Время</th><th>Полив</th><th>Активно</th><th>Действия</th></tr></thead><tbody>
+  {% for item in schedules %}
+  <tr id="schedule-{{ item.id }}">
+    <td>{{ zone_names.get(item.zone_id, "Зона удалена") }}</td>
+    <td>{% for day in item.days_of_week.split(",") %}{{ weekdays[day | int][0] }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+    <td>{{ item.start_time }}</td>
+    <td>{% if item.watering_mode == "volume" %}{{ item.liters_per_m2 }} л/м²{% else %}{{ item.duration_sec / 60 }} мин{% endif %}</td>
+    <td>{{ "да" if item.enabled else "нет" }}</td>
+    <td class="actions"><button type="button" class="secondary" onclick="document.querySelector('#schedule-edit-dialog-{{ item.id }}').showModal()">Изменить</button><button type="button" class="danger" onclick="document.querySelector('#schedule-delete-dialog-{{ item.id }}').showModal()">Удалить</button></td>
+  </tr>
+  {% endfor %}
+  </tbody></table>
+</div>
+
+{% for item in schedules %}
+<dialog id="schedule-edit-dialog-{{ item.id }}">
+  <div class="dialog-heading"><h2>Изменение расписания</h2><button type="button" class="dialog-close" aria-label="Закрыть" onclick="this.closest('dialog').close()">×</button></div>
+  {% if edit_schedule_id == item.id and edit_schedule_error %}<p class="error">{{ edit_schedule_error }}</p>{% endif %}
+  <form class="schedule-form" method="post" action="{{ request.url_for('update_schedule_form', schedule_id=item.id) }}">
+    {% with schedule=edit_schedule_data if edit_schedule_id == item.id and edit_schedule_data else item %}{% include "_schedule_form_fields.html" %}{% endwith %}
+  </form>
+</dialog>
+<dialog id="schedule-delete-dialog-{{ item.id }}">
+  <div class="dialog-heading"><h2>Удаление расписания</h2><button type="button" class="dialog-close" aria-label="Закрыть" onclick="this.closest('dialog').close()">×</button></div>
+  <p>Удалить расписание для зоны «{{ zone_names.get(item.zone_id, "Зона удалена") }}»?</p>
+  <div class="actions"><button class="danger" hx-delete="{{ request.url_for('delete_schedule_form', schedule_id=item.id) }}" hx-target="#schedule-{{ item.id }}" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful)this.closest('dialog').close()">Удалить</button><button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button></div>
+</dialog>
+{% endfor %}
+{% else %}
+<p>Расписания ещё не созданы.</p>
+{% endif %}
+
+<script>
+for (const form of document.querySelectorAll('.schedule-form')) {
+  const days = [...form.querySelectorAll('input[name="days_of_week"]')];
+  form.addEventListener('submit', (event) => {
+    const selected = days.some((day) => day.checked);
+    days[0].setCustomValidity(selected ? '' : 'Выберите хотя бы один день');
+    if (!selected) {
+      event.preventDefault();
+      days[0].reportValidity();
+    }
+  });
+  days.forEach((day) => day.addEventListener('change', () => days[0].setCustomValidity('')));
+  const mode = form.querySelector('.watering-mode');
+  const timer = form.querySelector('.timer-watering');
+  const volume = form.querySelector('.volume-watering');
+  const updateMode = () => {
+    const timerMode = mode.value === 'timer';
+    timer.hidden = !timerMode;
+    volume.hidden = timerMode;
+    timer.querySelector('input').disabled = !timerMode;
+    timer.querySelector('input').required = timerMode;
+    volume.querySelector('input').disabled = timerMode;
+    volume.querySelector('input').required = !timerMode;
+  };
+  mode.addEventListener('change', updateMode);
+  updateMode();
+}
+{% if schedule_error %}document.querySelector('#schedule-create-dialog').showModal();{% endif %}
+{% if edit_schedule_error %}document.querySelector('#schedule-edit-dialog-{{ edit_schedule_id }}').showModal();{% endif %}
+</script>
+{% endblock %}

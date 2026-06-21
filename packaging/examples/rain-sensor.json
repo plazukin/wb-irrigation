@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "device_id": "weather_sensor",
+  "control_id": "rain",
+  "topic": null,
+  "active_value": "1"
+}
+

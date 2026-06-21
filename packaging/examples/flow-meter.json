@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "device_id": "wb-flow_1",
+  "control_id": "Flow",
+  "min_flow_l_min": 0.2,
+  "startup_grace_sec": 10,
+  "stale_timeout_sec": 15
+}

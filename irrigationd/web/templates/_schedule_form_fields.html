@@ -1,0 +1,15 @@
+{% set selected_days = schedule.days_of_week.split(",") if schedule and schedule.id else (schedule.days_of_week if schedule else []) %}
+<label>Зона
+  <select name="zone_id" required>{% for zone in zones %}<option value="{{ zone.id }}" {% if schedule and schedule.zone_id == zone.id %}selected{% endif %}>{{ zone.name }}</option>{% endfor %}</select>
+</label>
+<fieldset class="weekday-picker"><legend>Дни недели</legend>
+  <div class="weekday-options">
+    {% for short, full in weekdays %}<label title="{{ full }}"><input type="checkbox" name="days_of_week" value="{{ loop.index0 }}" {% if (loop.index0 | string) in selected_days %}checked{% endif %}> {{ short }}</label>{% endfor %}
+  </div>
+</fieldset>
+<label>Время запуска<input type="time" name="start_time" value="{{ schedule.start_time if schedule else '' }}" required></label>
+<label>Режим полива<select name="watering_mode" class="watering-mode"><option value="timer" {% if not schedule or schedule.watering_mode == 'timer' %}selected{% endif %}>По времени</option><option value="volume" {% if schedule and schedule.watering_mode == 'volume' %}selected{% endif %} {% if not flow_meter_configured %}disabled{% endif %}>По расходу воды{% if not flow_meter_configured %} — расходомер не настроен{% endif %}</option></select></label>
+<label class="timer-watering">Длительность, мин<input type="number" name="duration_min" min="0.1" step="0.1" value="{{ (schedule.duration_sec / 60) if schedule and schedule.id and schedule.watering_mode == 'timer' else (schedule.duration_min if schedule and not schedule.id else '') }}"></label>
+<label class="volume-watering">Норма воды, л/м²<input type="number" name="liters_per_m2" min="0.1" step="0.1" value="{{ schedule.liters_per_m2 or '' if schedule else '' }}"></label>
+<label><input type="checkbox" name="enabled" {% if not schedule or schedule.enabled %}checked{% endif %}> Расписание включено</label>
+<div class="actions"><button type="submit">Сохранить</button><button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button></div>

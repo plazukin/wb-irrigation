@@ -1,0 +1,32 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ]; then
+    install -d -o root -g root -m 0755 /etc/wb-irrigation
+    install -d -o root -g root -m 0750 /var/lib/wb-irrigation
+    if [ -f /etc/wb-irrigation/config.yaml ]; then
+        chown root:root /etc/wb-irrigation/config.yaml
+        chmod 0644 /etc/wb-irrigation/config.yaml
+    fi
+    if command -v systemd-tmpfiles >/dev/null 2>&1; then
+        systemd-tmpfiles --create /usr/lib/tmpfiles.d/wb-irrigationd.conf || true
+    fi
+    if command -v nginx >/dev/null 2>&1; then
+        install -d -o root -g root -m 0755 /etc/nginx/includes/default.wb.d
+        ln -sfn /usr/share/wb-irrigationd/nginx/watering.conf \
+            /etc/nginx/includes/default.wb.d/watering.conf
+        if nginx -t; then
+            if command -v systemctl >/dev/null 2>&1; then
+                systemctl reload nginx.service >/dev/null 2>&1 || true
+            fi
+        else
+            echo "wb-irrigationd: ошибка конфигурации Nginx, прокси /watering отключён" >&2
+            rm -f /etc/nginx/includes/default.wb.d/watering.conf
+        fi
+    fi
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl daemon-reload >/dev/null 2>&1 || true
+    fi
+fi
+
+exit 0
